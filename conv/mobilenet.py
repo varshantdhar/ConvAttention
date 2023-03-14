@@ -38,5 +38,16 @@ class LinearBottleneck(nn.Module):
             self.se_unit = SEUnit(channels=mid_channels, squeeze_factor=4, squeeze_activation="relu", excite_activation="hsigmoid")
         self.conv3 = conv1x1_block(in_channels=mid_channels, out_channels=out_channels, activation=None)
 
+    def forward(self, x):
+        z = self.conv1(x)
+        z = self.conv2(z)
+        if self.use_se:
+            z = self.se_unit(z)
+        z = self.conv3(z)
+        if self.use_res_skip:
+            z = z + x
+        return x
+
+
 
 
