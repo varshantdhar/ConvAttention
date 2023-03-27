@@ -4,7 +4,7 @@ from torch import norm
 import torch.nn as nn
 import torch.nn.init as nn_init
 
-from common import conv1x1_block, conv3x3_block, conv7x7_block, Classifier
+from convolution import conv1x1_block, conv3x3_block, conv7x7_block, Classifier
 
 class Original(nn.Module):
     def __init__(self, in_channels, out_channels, stride) -> None:

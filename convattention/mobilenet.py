@@ -3,7 +3,7 @@ from urllib.parse import uses_netloc
 import torch.nn as nn
 import torch.nn.init
 
-from common import conv1x1_block, conv3x3_block, conv3x3_dw_block, conv5x5_dw_block, SEUnit, Classifier
+from common import conv1x1_block, conv3x3_dw_block, conv5x5_dw_block, SEUnit, Classifier
 
 
 
