@@ -22,3 +22,16 @@ class PositionalEncoding(nn.Module):
 
     def forward(self, length):
         return self.pe[:, :length]
+
+class Embedding(nn.Module):
+    """
+    Using learned embeddings to convert the input tokens and output tokens to vectors of dimension d_model.
+    Here, we multiply these weights by sqrt(d_model)
+    """
+    def __init__(self, num_embeddings, pad_id, d_model) -> None:
+        super().__init__()
+        self.sqrt_dim = math.sqrt(d_model)
+        self.embedding = nn.Embedding(num_embeddings=num_embeddings, embedding_dim=d_model, padding_idx=pad_id)
+    
+    def forward(self, input: Tensor) -> Tensor:
+        return self.embedding(input) * self.sqrt_dim
