@@ -22,6 +22,13 @@ class ScaledDotProductAttention(nn.Module):
         return context, atten
 
 
+class ConvAttentionPre(nn.Module):
+    pass
+
+class ConvAttentionPost(nn.Module):
+    pass
+
+
 class MultiHeadAttention(nn.Module):
      
     def __init__(self, n_embd=512, n_heads=8, bias=True, attn_drop=0.1, resid_drop=0.1, dropout=0.1) -> None:
