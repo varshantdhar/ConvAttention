@@ -92,6 +92,7 @@ class MultiHeadAttention(nn.Module):
     def forward(self, query, key, value, mask=None):
         B = value.size(0)
         
+         # Determine the attention layer based on the attention type
         if self.atten_type == "scaled_dot_prod":
             self.atten_layer = ScaledDotProductAttention(self.d_head, self.attn_drop)
         elif self.atten_type == "conv_atten_pre":
@@ -99,6 +100,7 @@ class MultiHeadAttention(nn.Module):
         elif self.atten_type == "conv_atten_post":
             self.atten_layer = ConvAttentionPost(channels=(B * self.n_heads), dim=self.n_heads, attn_drop=self.attn_drop)
         
+        # Reshape the input tensors for multi-head processing
         q = query.view(B, -1, self.n_heads, self.d_head) # (B, T, nh, dh)
         k = key.view(B, -1, self.n_heads, self.d_head) # (B, T, nh, dh)
         v = value.view(B, -1, self.n_heads, self.d_head) # (B, T, nh, dh)
@@ -106,12 +108,15 @@ class MultiHeadAttention(nn.Module):
         if mask is not None:
             mask = mask.repeat(self.n_heads, 1, 1)
 
+         # Reshape the input tensors for the attention computation
         q = q.permute(2, 0, 1, 3).contiguous().view(B * self.n_heads, -1, self.d_head) # ((B * nh), T, dh)
         k = k.permute(2, 0, 1, 3).contiguous().view(B * self.n_heads, -1, self.d_head) # ((B * nh), T, dh)
         v = v.permute(2, 0, 1, 3).contiguous().view(B * self.n_heads, -1, self.d_head) # ((B * nh), T, dh)
 
+        # Compute the attended context and attention weights using the selected attention layer
         context, atten = self.atten_layer(query=q, key=k, value=v, mask=mask)
         
+        # Reshape the attended context for the output
         context = context.view(self.n_heads, B, -1, self.d_head)
         context = context.permute(1, 2, 0, 3).contiguous().view(B, -1, self.n_heads * self.d_head) # (B, T, (nh * dh))
 
