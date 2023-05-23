@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
+from convolution import conv3x3_dw_block, conv5x5_dw_block
+
 class ScaledDotProductAttention(nn.Module):
 
     def __init__(self, dim, attn_drop) -> None:
@@ -23,10 +25,50 @@ class ScaledDotProductAttention(nn.Module):
 
 
 class ConvAttentionPre(nn.Module):
-    pass
+    def __init__(self, channels, dim, attn_drop, use_bn = True, activation = "relu") -> None:
+        super().__init__()
+        self.conv = conv3x3_dw_block(channels=channels, use_bn=use_bn, activation=activation)
+        self.sqrt_dim = np.sqrt(dim)
+        self.attn_drop = nn.Dropout(attn_drop)
+
+    def forward(self, query, key, value, mask=None):
+        # ((B * nh), T, dh) x ((B * nh), dh, T) -> ((B * nh), T, T)
+        score = torch.bmm(query, key.transpose(1, 2)) / self.sqrt_dim
+        # Convolve the attention score before Softmax nnormalization
+        conv_score = score + self.conv(score)
+
+        if mask is not None:
+            conv_score.masked_fill_(mask == 0, -1e9)
+
+        # Calculate attention weights without convolution
+        atten = self.attn_drop(F.softmax(conv_score, dim=-1))
+         # Compute the attended output by matrix multiplication with value
+        context = torch.bmm(atten, value)
+        
+        return context, atten
 
 class ConvAttentionPost(nn.Module):
-    pass
+
+    def __init__(self, channels, dim, attn_drop, use_bn = True, activation = "relu") -> None:
+        super().__init__()
+        self.conv = conv3x3_dw_block(channels=channels, use_bn=use_bn, activation=activation)
+        self.sqrt_dim = np.sqrt(dim)
+        self.attn_drop = nn.Dropout(attn_drop)
+
+    def forward(self, query, key, value, mask=None):
+        # ((B * nh), T, dh) x ((B * nh), dh, T) -> ((B * nh), T, T)
+        score = torch.bmm(query, key.transpose(1, 2)) / self.sqrt_dim
+        if mask is not None:
+            score.masked_fill_(mask == 0, -1e9)
+
+        # Calculate attention weights without convolution
+        atten = self.attn_drop(F.softmax(score, dim=-1))
+        # Sum the attention weights and convolved attention weights
+        conv_atten = atten + self.conv(atten)
+         # Compute the attended output by matrix multiplication with value
+        context = torch.bmm(conv_atten, value)
+
+        return context, conv_atten
 
 
 class MultiHeadAttention(nn.Module):
