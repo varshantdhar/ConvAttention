@@ -73,7 +73,7 @@ class ConvAttentionPost(nn.Module):
 
 class MultiHeadAttention(nn.Module):
      
-    def __init__(self, n_embd=512, n_heads=8, bias=True, attn_drop=0.1, resid_drop=0.1, dropout=0.1) -> None:
+    def __init__(self, atten_type="scaled_dot_prod", n_embd=512, n_heads=8, bias=True, attn_drop=0.1, resid_drop=0.1, dropout=0.1) -> None:
         super().__init__()
 
         assert n_embd % n_heads == 0
@@ -83,13 +83,21 @@ class MultiHeadAttention(nn.Module):
         self.d_head = int(n_embd / n_heads)
         self.attn = nn.Linear(n_embd, 3 * n_embd)
         self.out_proj = nn.Linear(n_embd, n_embd) 
+        self.atten_type = atten_type
+        self.attn_drop = attn_drop
 
         self.resid_dropout = nn.Dropout(resid_drop)
         self.dropout = dropout
-        self.scaled_dot_prod_atten = ScaledDotProductAttention(self.d_head, attn_drop)
 
     def forward(self, query, key, value, mask=None):
         B = value.size(0)
+        
+        if self.atten_type == "scaled_dot_prod":
+            self.atten_layer = ScaledDotProductAttention(self.d_head, self.attn_drop)
+        elif self.atten_type == "conv_atten_pre":
+            self.atten_layer = ConvAttentionPre(channels=(B * self.n_heads), dim=self.d_head, attn_drop=self.attn_drop)
+        elif self.atten_type == "conv_atten_post":
+            self.atten_layer = ConvAttentionPost(channels=(B * self.n_heads), dim=self.n_heads, attn_drop=self.attn_drop)
         
         q = query.view(B, -1, self.n_heads, self.d_head) # (B, T, nh, dh)
         k = key.view(B, -1, self.n_heads, self.d_head) # (B, T, nh, dh)
@@ -102,7 +110,7 @@ class MultiHeadAttention(nn.Module):
         k = k.permute(2, 0, 1, 3).contiguous().view(B * self.n_heads, -1, self.d_head) # ((B * nh), T, dh)
         v = v.permute(2, 0, 1, 3).contiguous().view(B * self.n_heads, -1, self.d_head) # ((B * nh), T, dh)
 
-        context, atten = self.scaled_dot_prod_atten.forward(query=q, key=k, value=v, mask=mask)
+        context, atten = self.atten_layer(query=q, key=k, value=v, mask=mask)
         
         context = context.view(self.n_heads, B, -1, self.d_head)
         context = context.permute(1, 2, 0, 3).contiguous().view(B, -1, self.n_heads * self.d_head) # (B, T, (nh * dh))
